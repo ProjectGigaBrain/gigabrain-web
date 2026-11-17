@@ -1,8 +1,17 @@
 import { CheckCircle2, CircleAlert } from "lucide-react";
 
-import type { ValidationReport } from "@/services/api.types";
+import type { RequirementClass, ValidationReport } from "@/services/api.types";
 
 const label = (text: string) => text.replaceAll("_", " ");
+
+const isStoryDimension = (name: string) => {
+  const normalized = name.toLocaleLowerCase("en-US");
+  return (
+    normalized === "story" ||
+    normalized === "story_complete" ||
+    normalized === "user_story"
+  );
+};
 
 function Score({ name, score, ok }: { name: string; score: number; ok: boolean }) {
   return (
@@ -19,12 +28,25 @@ function Score({ name, score, ok }: { name: string; score: number; ok: boolean }
 }
 
 /** The Critic's scores (0 to 1) per competency, plus its findings. */
-export function ValidationPanel({ validation }: { validation?: ValidationReport | null }) {
+export function ValidationPanel({
+  validation,
+  requirementClass,
+}: {
+  validation?: ValidationReport | null;
+  requirementClass?: RequirementClass | string | null;
+}) {
   if (!validation) return null;
 
-  const failed = validation.failed_dimensions ?? [];
-  const items = Object.entries(validation.scores ?? {});
-  const document = Object.entries(validation.document ?? {}).filter(([, x]) => x.assessed);
+  const isNfr = requirementClass === "NFR";
+  const failed = (validation.failed_dimensions ?? []).filter(
+    (name) => !isNfr || !isStoryDimension(name),
+  );
+  const items = Object.entries(validation.scores ?? {}).filter(
+    ([name]) => !isNfr || !isStoryDimension(name),
+  );
+  const document = Object.entries(validation.document ?? {}).filter(
+    ([name, x]) => x.assessed && (!isNfr || !isStoryDimension(name)),
+  );
   const findings = validation.findings ?? [];
 
   return (

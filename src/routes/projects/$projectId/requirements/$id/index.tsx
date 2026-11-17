@@ -97,7 +97,15 @@ function RequirementDetailsPage() {
   }, [loadRequirement]);
 
   const content = requirement?.content;
-  const story = content?.story;
+  const isNfr = content?.class === "NFR";
+  const story =
+    !isNfr &&
+    content?.story &&
+    (content.story.role?.trim() ||
+      content.story.goal?.trim() ||
+      content.story.benefit?.trim())
+      ? content.story
+      : null;
   const criteria = Array.isArray(content?.acceptance_criteria)
     ? (content.acceptance_criteria as AcceptanceCriterion[])
     : [];
@@ -105,10 +113,14 @@ function RequirementDetailsPage() {
   const qualityItems = quality
     ? [
         ["EARS Pattern", quality.ears ? "Fullfilled" : "Not fullfilled"],
-        [
-          "Complete User Story",
-          quality.story_complete ? "Fullfilled" : "Not fullfilled",
-        ],
+        ...(!isNfr
+          ? [
+              [
+                "Complete User Story",
+                quality.story_complete ? "Fullfilled" : "Not fullfilled",
+              ] as const,
+            ]
+          : []),
         [
           "Gherkin Criteria",
           quality.criteria_gherkin ? "Fullfilled" : "Not fullfilled",
@@ -301,7 +313,10 @@ function RequirementDetailsPage() {
                   )}
                 </Card>
 
-                <ValidationPanel validation={requirement?.validation} />
+                <ValidationPanel
+                  validation={requirement?.validation}
+                  requirementClass={content?.class}
+                />
                 <Card className="gap-3">
                   <Typography as="h2" className="font-semibold">
                     Quality

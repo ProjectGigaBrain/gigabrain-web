@@ -19,7 +19,7 @@ export interface AcceptanceCriterion {
 export interface RequirementQuality {
   ears: boolean;
   ears_pattern: string | null;
-  story_complete: boolean;
+  story_complete?: boolean;
   criteria_count: number;
   criteria_gherkin: boolean;
   vague_terms: string[];
@@ -57,7 +57,7 @@ export interface ProposedRequirement {
   title: string;
   statement: string;
   ears_pattern?: string;
-  story: UserStory | null;
+  story?: UserStory | null;
   acceptance_criteria: AcceptanceCriterion[];
   class: RequirementClass;
   subtype: string | null;
@@ -113,12 +113,25 @@ export interface ConversationSummary {
   active: boolean;
 }
 
+export interface ChatAttachment {
+  name: string;
+  size: number;
+  content_type?: string | null;
+}
+
+export interface SendMessagePayload {
+  text?: string;
+  files?: File[];
+  onUploadProgress?: (percent: number | null) => void;
+}
+
 export interface ConversationMessage {
   id: number;
   timestamp: string;
   author: "po" | "twin" | string;
   kind: string;
   text: string;
+  attachments?: ChatAttachment[];
   proposed_requirements: ProposedRequirement[];
   saved: string[];
 }
@@ -141,7 +154,7 @@ export interface RequirementSummary {
   kind: string;
   topics: string[];
   statement: string | null;
-  story: UserStory | null;
+  story?: UserStory | null;
   acceptance_criteria: number;
   class: RequirementClass;
   subtype: string | null;

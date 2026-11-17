@@ -1,13 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ValidationPanel } from "@/components/ValidationPanel";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
 import {
   CheckCircle2,
   CircleAlert,
+  FileText,
   LoaderCircle,
   MessageSquare,
+  Paperclip,
   RotateCcw,
   Send,
+  X,
   XCircle,
 } from "lucide-react";
 
@@ -15,10 +24,17 @@ import { Typography } from "@/components/ui/typography";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChatService } from "@/services/chat.service";
+import {
+  CHAT_FILE_INPUT_ACCEPT,
+  CHAT_UPLOAD_CONSTRAINTS,
+  ChatService,
+  formatFileSize,
+  validateChatFiles,
+} from "@/services/chat.service";
 import { getApiErrorMessage } from "@/services/api";
 import type {
   BehindTheScenesEvent,
+  ChatAttachment,
   ConversationAction,
   ProposedRequirement,
   TwinAnswer,
@@ -36,6 +52,7 @@ type ChatMessage = {
   id: string;
   author: "po" | "twin";
   text: string;
+  attachments?: ChatAttachment[];
   action?: ConversationAction;
   requirements?: ProposedRequirement[];
   events?: BehindTheScenesEvent[];
@@ -50,6 +67,9 @@ function Chat() {
   const { projectId } = Route.useParams();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isOpening, setIsOpening] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -63,6 +83,8 @@ function Chat() {
   const openingRef = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
 
   const openConversation = useCallback(async () => {
     if (openingRef.current) return;
@@ -81,6 +103,7 @@ function Chat() {
       setConversationId(response.id);
       setIsConversationActive(response.active);
       setMessages([]);
+      setFiles([]);
       setHasPendingProposal(false);
       notifyConversationsUpdated();
     } catch (requestError) {
@@ -104,6 +127,64 @@ function Chat() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, isSending, isApproving, notice, error]);
+
+  const addFiles = (incoming: FileList | File[]) => {
+    const list = Array.from(incoming);
+    if (list.length === 0) return;
+
+    const { valid, errors } = validateChatFiles(list, files.length);
+    if (errors.length > 0) {
+      setError(errors.join(" "));
+    } else {
+      setError(null);
+    }
+
+    if (valid.length > 0) {
+      setFiles((current) => [...current, ...valid]);
+    }
+  };
+
+  const removeFile = (indexToRemove: number) => {
+    setFiles((current) =>
+      current.filter((_, index) => index !== indexToRemove),
+    );
+  };
+
+  const handleDragEnter = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (isBusy || !conversationId || !isConversationActive) return;
+    dragCounterRef.current += 1;
+    if (event.dataTransfer.items && event.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const handleDrop = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+    if (isBusy || !conversationId || !isConversationActive) return;
+    if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+      addFiles(event.dataTransfer.files);
+      event.dataTransfer.clearData();
+    }
+  };
 
   const appendAnswer = (answer: TwinAnswer) => {
     setMessages((current) => [
@@ -134,8 +215,9 @@ function Chat() {
 
   const submit = async () => {
     const text = message.trim();
+    const attachedFiles = [...files];
     if (
-      !text ||
+      (!text && attachedFiles.length === 0) ||
       !conversationId ||
       isSending ||
       isApproving ||
@@ -144,12 +226,25 @@ function Chat() {
       return;
     }
 
+    const localAttachments: ChatAttachment[] = attachedFiles.map((file) => ({
+      name: file.name,
+      size: file.size,
+      content_type: file.type || null,
+    }));
+
     const optimisticId = getMessageId();
     setMessages((current) => [
       ...current,
-      { id: optimisticId, author: "po", text },
+      {
+        id: optimisticId,
+        author: "po",
+        text,
+        attachments: localAttachments.length > 0 ? localAttachments : undefined,
+      },
     ]);
     setMessage("");
+    setFiles([]);
+    setUploadProgress(attachedFiles.length > 0 ? 0 : null);
     setIsSending(true);
     setError(null);
     setNotice(null);
@@ -159,6 +254,13 @@ function Chat() {
         projectId,
         conversationId,
         text,
+        {
+          files: attachedFiles,
+          onUploadProgress:
+            attachedFiles.length > 0
+              ? (percent) => setUploadProgress(percent)
+              : undefined,
+        },
       );
       appendAnswer(answer);
       notifyConversationsUpdated();
@@ -167,11 +269,13 @@ function Chat() {
         current.filter((item) => item.id !== optimisticId),
       );
       setMessage(text);
+      setFiles(attachedFiles);
       setError(
         getApiErrorMessage(requestError, "Cannot send message. Try again."),
       );
     } finally {
       setIsSending(false);
+      setUploadProgress(null);
       composerRef.current?.focus();
     }
   };
@@ -245,7 +349,29 @@ function Chat() {
 
   return (
     <DashboardLayout>
-      <div className="flex h-dvh min-h-140 w-full flex-col">
+      <div
+        className="relative flex h-dvh min-h-140 w-full flex-col"
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {isDragging && (
+          <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-xs">
+            <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-primary bg-card px-8 py-6 text-center shadow-sm">
+              <Paperclip className="size-8 text-primary" />
+              <Typography as="h3" className="font-semibold">
+                Drop files here to attach
+              </Typography>
+              <Typography as="p" className="text-xs text-muted-foreground">
+                Supported:{" "}
+                {CHAT_UPLOAD_CONSTRAINTS.ACCEPTED_EXTENSIONS.join(", ")} (up to{" "}
+                {formatFileSize(CHAT_UPLOAD_CONSTRAINTS.MAX_FILE_SIZE_BYTES)}{" "}
+                each, max {CHAT_UPLOAD_CONSTRAINTS.MAX_FILES_PER_MESSAGE} files)
+              </Typography>
+            </div>
+          </div>
+        )}
         <header className="border-b px-4 py-4 sm:px-8">
           <div className="mx-auto flex w-full max-w-4xl items-start gap-3">
             <SidebarTrigger />
@@ -325,11 +451,33 @@ function Chat() {
                       ? "You · Product Owner"
                       : "GigaBrain · Digital Twin"}
                   </span>
-                  <div
-                    className={`whitespace-pre-wrap wrap-break-word rounded-2xl px-4 py-3 text-sm leading-6 ${item.author === "po" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md border bg-card"}`}
-                  >
-                    {item.text}
-                  </div>
+                  {item.text && (
+                    <div
+                      className={`whitespace-pre-wrap wrap-break-word rounded-2xl px-4 py-3 text-sm leading-6 ${item.author === "po" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md border bg-card"}`}
+                    >
+                      {item.text}
+                    </div>
+                  )}
+                  {item.attachments && item.attachments.length > 0 && (
+                    <div
+                      className={`flex flex-wrap gap-1.5 ${item.author === "po" ? "justify-end" : "justify-start"}`}
+                    >
+                      {item.attachments.map((attachment, index) => (
+                        <span
+                          key={`${attachment.name}-${index}`}
+                          className="inline-flex items-center gap-1.5 rounded-full border bg-muted/60 px-2.5 py-1 text-xs"
+                        >
+                          <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="max-w-48 truncate font-medium">
+                            {attachment.name}
+                          </span>
+                          <span className="text-muted-foreground">
+                            ({formatFileSize(attachment.size)})
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   {item.requirements && item.requirements.length > 0 && (
                     <div className="flex w-full flex-col gap-3 pt-1">
@@ -414,8 +562,11 @@ function Chat() {
                 className="flex items-center gap-3 text-sm text-muted-foreground"
               >
                 <LoaderCircle className="size-4 animate-spin" />
-                The Digital Twin is analyzing your message. This may take up to
-                a minute.
+                <span>
+                  {uploadProgress !== null && uploadProgress < 100
+                    ? `Uploading attachments (${uploadProgress}%)...`
+                    : "The Digital Twin is analyzing your message. This may take up to a minute."}
+                </span>
               </div>
             )}
 
@@ -472,58 +623,124 @@ function Chat() {
         </section>
 
         <footer className="border-t px-4 py-4 sm:px-8">
-          <form
-            className="mx-auto flex w-full max-w-4xl items-end gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submit();
-            }}
-          >
-            <Textarea
-              ref={composerRef}
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              onKeyDown={(event) => {
-                if (
-                  event.key === "Enter" &&
-                  !event.shiftKey &&
-                  !event.nativeEvent.isComposing
-                ) {
-                  event.preventDefault();
-                  void submit();
-                }
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
+            {files.length > 0 && (
+              <div
+                aria-label="Selected attachments"
+                className="flex flex-wrap gap-2"
+              >
+                {files.map((file, index) => (
+                  <span
+                    key={`${file.name}-${file.size}-${index}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border bg-muted/50 px-3 py-1 text-xs"
+                  >
+                    <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="max-w-48 truncate font-medium">
+                      {file.name}
+                    </span>
+                    <span className="text-muted-foreground">
+                      ({formatFileSize(file.size)})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(index)}
+                      disabled={isBusy}
+                      aria-label={`Remove ${file.name}`}
+                      className="ml-0.5 rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <form
+              className="flex w-full items-end gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submit();
               }}
-              className="max-h-40 min-h-12 flex-1 resize-y rounded-2xl"
-              disabled={isBusy || !conversationId || !isConversationActive}
-              placeholder={
-                isOpening
-                  ? "Starting conversation..."
-                  : !isConversationActive
-                    ? "This conversation has ended."
-                    : "Enter the interview that you want to turn into requirements."
-              }
-              aria-label="Message to the Digital Twin"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              className="rounded-2xl"
-              loading={isSending}
-              disabled={
-                isBusy ||
-                !conversationId ||
-                !isConversationActive ||
-                !message.trim()
-              }
-              aria-label="Send message"
             >
-              <Send />
-            </Button>
-          </form>
-          <p className="mx-auto mt-2 w-full max-w-4xl text-xs text-muted-foreground">
-            Enter sends · Shift + Enter creates a line break. Approval is
-            required to save requirements.
-          </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={CHAT_FILE_INPUT_ACCEPT}
+                className="hidden"
+                onChange={(event) => {
+                  if (event.target.files) {
+                    addFiles(event.target.files);
+                    event.target.value = "";
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="rounded-2xl shrink-0"
+                disabled={
+                  isBusy ||
+                  !conversationId ||
+                  !isConversationActive ||
+                  files.length >= CHAT_UPLOAD_CONSTRAINTS.MAX_FILES_PER_MESSAGE
+                }
+                onClick={() => fileInputRef.current?.click()}
+                aria-label="Attach files"
+                title={`Attach files (${CHAT_UPLOAD_CONSTRAINTS.ACCEPTED_EXTENSIONS.join(", ")})`}
+              >
+                <Paperclip />
+              </Button>
+              <Textarea
+                ref={composerRef}
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                onKeyDown={(event) => {
+                  if (
+                    event.key === "Enter" &&
+                    !event.shiftKey &&
+                    !event.nativeEvent.isComposing
+                  ) {
+                    event.preventDefault();
+                    void submit();
+                  }
+                }}
+                className="max-h-40 min-h-12 flex-1 resize-y rounded-2xl"
+                disabled={isBusy || !conversationId || !isConversationActive}
+                placeholder={
+                  isOpening
+                    ? "Starting conversation..."
+                    : !isConversationActive
+                      ? "This conversation has ended."
+                      : "Enter the interview that you want to turn into requirements, or attach files."
+                }
+                aria-label="Message to the Digital Twin"
+              />
+              <Button
+                type="submit"
+                size="icon"
+                className="rounded-2xl shrink-0"
+                loading={isSending}
+                disabled={
+                  isBusy ||
+                  !conversationId ||
+                  !isConversationActive ||
+                  (!message.trim() && files.length === 0)
+                }
+                aria-label="Send message"
+              >
+                <Send />
+              </Button>
+            </form>
+            <p className="text-xs text-muted-foreground">
+              Enter sends · Shift + Enter creates a line break · Drag and drop
+              or attach {CHAT_UPLOAD_CONSTRAINTS.ACCEPTED_EXTENSIONS.join(", ")}{" "}
+              (up to{" "}
+              {formatFileSize(CHAT_UPLOAD_CONSTRAINTS.MAX_FILE_SIZE_BYTES)}, max{" "}
+              {CHAT_UPLOAD_CONSTRAINTS.MAX_FILES_PER_MESSAGE} files).
+            </p>
+          </div>
         </footer>
       </div>
     </DashboardLayout>
@@ -535,17 +752,25 @@ function RequirementProposal({
 }: {
   requirement: ProposedRequirement;
 }) {
+  const isNfr = requirement.class === "NFR";
+  const hasStory =
+    !isNfr &&
+    requirement.story &&
+    (requirement.story.role?.trim() ||
+      requirement.story.goal?.trim() ||
+      requirement.story.benefit?.trim());
+
   return (
     <Card className="gap-3 rounded-2xl bg-card p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full border px-2 py-0.5 text-xs font-semibold">
           {requirement.class}
         </span>
-        {requirement.subtype && (
+        {/* {requirement.subtype && (
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
             {requirement.subtype}
           </span>
-        )}
+        )} */}
         {requirement.topics?.map((topic) => (
           <span
             key={topic}
@@ -562,7 +787,7 @@ function RequirementProposal({
         {requirement.statement}
       </p>
 
-      {requirement.story && (
+      {hasStory && requirement.story && (
         <div className="rounded-xl bg-muted/40 p-3">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             User story
@@ -599,7 +824,10 @@ function RequirementProposal({
         </div>
       )}
 
-      <ValidationPanel validation={requirement.validation} />
+      <ValidationPanel
+        validation={requirement.validation}
+        requirementClass={requirement.class}
+      />
 
       {requirement.quality && (
         <details className="rounded-xl border px-3 py-2">
@@ -611,10 +839,12 @@ function RequirementProposal({
               label="EARS Pattern"
               valid={requirement.quality.ears}
             />
-            <QualityItem
-              label="Complete History"
-              valid={requirement.quality.story_complete}
-            />
+            {!isNfr && (
+              <QualityItem
+                label="Complete History"
+                valid={Boolean(requirement.quality.story_complete)}
+              />
+            )}
             <QualityItem
               label="Gherkin Criteria"
               valid={requirement.quality.criteria_gherkin}
