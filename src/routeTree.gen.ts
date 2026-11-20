@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects/index'
 import { Route as ProjectsProjectIdChatIndexRouteImport } from './routes/projects/$projectId/chat/index'
+import { Route as ProjectsProjectIdEpicsIndexRouteImport } from './routes/projects/$projectId/epics/index'
 import { Route as ProjectsProjectIdExpertsIndexRouteImport } from './routes/projects/$projectId/experts/index'
 import { Route as ProjectsProjectIdRequirementsIndexRouteImport } from './routes/projects/$projectId/requirements/index'
 import { Route as ProjectsProjectIdConversationsIdIndexRouteImport } from './routes/projects/$projectId/conversations/$id/index'
@@ -32,6 +33,12 @@ const ProjectsProjectIdChatIndexRoute =
   ProjectsProjectIdChatIndexRouteImport.update({
     id: '/projects/$projectId/chat/',
     path: '/projects/$projectId/chat/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ProjectsProjectIdEpicsIndexRoute =
+  ProjectsProjectIdEpicsIndexRouteImport.update({
+    id: '/projects/$projectId/epics/',
+    path: '/projects/$projectId/epics/',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ProjectsProjectIdExpertsIndexRoute =
@@ -69,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/projects/$projectId/chat/': typeof ProjectsProjectIdChatIndexRoute
+  '/projects/$projectId/epics/': typeof ProjectsProjectIdEpicsIndexRoute
   '/projects/$projectId/experts/': typeof ProjectsProjectIdExpertsIndexRoute
   '/projects/$projectId/requirements/': typeof ProjectsProjectIdRequirementsIndexRoute
   '/projects/$projectId/conversations/$id/': typeof ProjectsProjectIdConversationsIdIndexRoute
@@ -79,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/projects/$projectId/chat': typeof ProjectsProjectIdChatIndexRoute
+  '/projects/$projectId/epics': typeof ProjectsProjectIdEpicsIndexRoute
   '/projects/$projectId/experts': typeof ProjectsProjectIdExpertsIndexRoute
   '/projects/$projectId/requirements': typeof ProjectsProjectIdRequirementsIndexRoute
   '/projects/$projectId/conversations/$id': typeof ProjectsProjectIdConversationsIdIndexRoute
@@ -90,6 +99,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/projects/$projectId/chat/': typeof ProjectsProjectIdChatIndexRoute
+  '/projects/$projectId/epics/': typeof ProjectsProjectIdEpicsIndexRoute
   '/projects/$projectId/experts/': typeof ProjectsProjectIdExpertsIndexRoute
   '/projects/$projectId/requirements/': typeof ProjectsProjectIdRequirementsIndexRoute
   '/projects/$projectId/conversations/$id/': typeof ProjectsProjectIdConversationsIdIndexRoute
@@ -102,6 +112,7 @@ export interface FileRouteTypes {
     | '/'
     | '/projects/'
     | '/projects/$projectId/chat/'
+    | '/projects/$projectId/epics/'
     | '/projects/$projectId/experts/'
     | '/projects/$projectId/requirements/'
     | '/projects/$projectId/conversations/$id/'
@@ -112,6 +123,7 @@ export interface FileRouteTypes {
     | '/'
     | '/projects'
     | '/projects/$projectId/chat'
+    | '/projects/$projectId/epics'
     | '/projects/$projectId/experts'
     | '/projects/$projectId/requirements'
     | '/projects/$projectId/conversations/$id'
@@ -122,6 +134,7 @@ export interface FileRouteTypes {
     | '/'
     | '/projects/'
     | '/projects/$projectId/chat/'
+    | '/projects/$projectId/epics/'
     | '/projects/$projectId/experts/'
     | '/projects/$projectId/requirements/'
     | '/projects/$projectId/conversations/$id/'
@@ -133,6 +146,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
   ProjectsProjectIdChatIndexRoute: typeof ProjectsProjectIdChatIndexRoute
+  ProjectsProjectIdEpicsIndexRoute: typeof ProjectsProjectIdEpicsIndexRoute
   ProjectsProjectIdExpertsIndexRoute: typeof ProjectsProjectIdExpertsIndexRoute
   ProjectsProjectIdRequirementsIndexRoute: typeof ProjectsProjectIdRequirementsIndexRoute
   ProjectsProjectIdConversationsIdIndexRoute: typeof ProjectsProjectIdConversationsIdIndexRoute
@@ -161,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/projects/$projectId/chat'
       fullPath: '/projects/$projectId/chat/'
       preLoaderRoute: typeof ProjectsProjectIdChatIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/$projectId/epics/': {
+      id: '/projects/$projectId/epics/'
+      path: '/projects/$projectId/epics'
+      fullPath: '/projects/$projectId/epics/'
+      preLoaderRoute: typeof ProjectsProjectIdEpicsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects/$projectId/experts/': {
@@ -205,6 +226,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
   ProjectsProjectIdChatIndexRoute: ProjectsProjectIdChatIndexRoute,
+  ProjectsProjectIdEpicsIndexRoute: ProjectsProjectIdEpicsIndexRoute,
   ProjectsProjectIdExpertsIndexRoute: ProjectsProjectIdExpertsIndexRoute,
   ProjectsProjectIdRequirementsIndexRoute:
     ProjectsProjectIdRequirementsIndexRoute,

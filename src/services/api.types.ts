@@ -9,6 +9,13 @@ export interface UserStory {
   benefit: string;
 }
 
+/** Constraint card of a non-functional requirement (an NFR is never a user story). */
+export interface ConstraintCard {
+  quality: string;
+  scope: string;
+  measure: string;
+}
+
 export interface AcceptanceCriterion {
   scenario: string;
   given: string;
@@ -19,7 +26,11 @@ export interface AcceptanceCriterion {
 export interface RequirementQuality {
   ears: boolean;
   ears_pattern: string | null;
-  story_complete?: boolean;
+  /** "story" for an FR, "constraint" for an NFR. */
+  card?: "story" | "constraint";
+  card_complete?: boolean;
+  story_complete?: boolean | null;
+  constraint_complete?: boolean | null;
   criteria_count: number;
   criteria_gherkin: boolean;
   vague_terms: string[];
@@ -52,12 +63,32 @@ export interface ValidationReport {
   [key: string]: unknown;
 }
 
+/** Where a piece of a requirement came from. */
+export interface RequirementSource {
+  kind: "conversation" | "turn" | "expert" | "requirement" | "validation" | string;
+  ref: string;
+  version?: number | null;
+  action?: string | null;
+  meeting?: number;
+  [key: string]: unknown;
+}
+
+/** An expert that reviewed a requirement; `edited` when it changed it. */
+export interface ExpertContribution {
+  expert_id: string;
+  knowledge_version?: number | null;
+  action?: string | null;
+  edited: boolean;
+}
+
 export interface ProposedRequirement {
   id?: string;
   title: string;
   statement: string;
   ears_pattern?: string;
   story?: UserStory | null;
+  constraint?: ConstraintCard | null;
+  turns?: string[];
   acceptance_criteria: AcceptanceCriterion[];
   class: RequirementClass;
   subtype: string | null;
@@ -66,6 +97,17 @@ export interface ProposedRequirement {
   quality?: RequirementQuality;
   validation?: ValidationReport | null;
   [key: string]: unknown;
+}
+
+export type DraftStatus = "pending" | "approved" | "rejected";
+
+/** A requirement of the conversation the PO has not approved yet (or already approved/rejected). */
+export interface Draft extends ProposedRequirement {
+  draft_id: string;
+  status: DraftStatus;
+  origin: "chat" | "meeting" | string;
+  saved_as: string | null;
+  sources: RequirementSource[];
 }
 
 export interface BehindTheScenesEvent {
@@ -81,7 +123,8 @@ export interface BehindTheScenesEvent {
 export interface TwinAnswer {
   action: ConversationAction;
   message: string;
-  proposed_requirements: ProposedRequirement[];
+  proposed_requirements: Draft[];
+  drafts: Draft[];
   validation?: ValidationReport | null;
   saved: string[];
   pending_proposal: boolean;
@@ -93,6 +136,7 @@ export interface OpenConversationResponse {
   id: string;
   mode: "after_meeting" | "in_meeting";
   status: string;
+  title?: string | null;
   active: boolean;
 }
 
@@ -111,6 +155,7 @@ export interface ConversationSummary {
   status: string;
   events: number;
   active: boolean;
+  in_memory?: boolean;
 }
 
 export interface ChatAttachment {
@@ -143,7 +188,10 @@ export interface ConversationListResponse {
 export interface ConversationDetails extends ConversationSummary {
   pending_proposal: boolean;
   messages: ConversationMessage[];
+  drafts: Draft[];
   saved_requirements: string[];
+  /** How many times each expert answered in this conversation. */
+  expert_consultations: Record<string, number>;
 }
 
 export interface RequirementSummary {
@@ -160,6 +208,9 @@ export interface RequirementSummary {
   subtype: string | null;
   created_at: string;
   updated_at: string;
+  quality?: RequirementQuality;
+  sources?: RequirementSource[];
+  experts?: ExpertContribution[];
 }
 
 export interface RequirementDetails {
@@ -170,6 +221,8 @@ export interface RequirementDetails {
   content: ProposedRequirement;
   quality: RequirementQuality;
   validation?: ValidationReport | null;
+  sources?: RequirementSource[];
+  experts?: ExpertContribution[];
   versions: Array<Record<string, unknown>>;
   links: RequirementLink[];
   trace: Array<Record<string, unknown>>;
@@ -225,4 +278,37 @@ export interface Project {
   name: string;
   description: string;
   created_at: string;
+}
+
+export interface EpicItem {
+  id: string;
+  title: string;
+  status: string;
+  statement: string | null;
+  subtype: string | null;
+  acceptance_criteria: AcceptanceCriterion[];
+  story?: UserStory | null;
+  constraint?: ConstraintCard | null;
+}
+
+/** Requirements grouped by theme: user stories (FR) and constraint cards (NFR). */
+export interface Epic {
+  id: string;
+  title: string;
+  description: string;
+  requirements: string[];
+  created_at: string;
+  stories: EpicItem[];
+  constraints: EpicItem[];
+}
+
+/** How the requirements follow the format: share that passes each check. */
+export interface FormatReport {
+  requirements: number;
+  fr: number;
+  nfr: number;
+  rates: Record<"ears" | "card" | "gherkin" | "not_vague", number | null>;
+  failing: Record<"ears" | "card" | "gherkin" | "not_vague", string[]>;
+  ears_patterns: Record<string, number>;
+  nfr_with_story: string[];
 }

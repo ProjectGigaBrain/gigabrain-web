@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ValidationPanel } from "@/components/ValidationPanel";
+import { ExpertTags } from "@/components/RequirementCard";
+import { contributionsOf } from "@/utils/requirements";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   AlertCircle,
@@ -113,14 +115,10 @@ function RequirementDetailsPage() {
   const qualityItems = quality
     ? [
         ["EARS Pattern", quality.ears ? "Fullfilled" : "Not fullfilled"],
-        ...(!isNfr
-          ? [
-              [
-                "Complete User Story",
-                quality.story_complete ? "Fullfilled" : "Not fullfilled",
-              ] as const,
-            ]
-          : []),
+        [
+          isNfr ? "Complete constraint card" : "Complete user story",
+          (quality.card_complete ?? quality.story_complete) ? "Fullfilled" : "Not fullfilled",
+        ],
         [
           "Gherkin Criteria",
           quality.criteria_gherkin ? "Fullfilled" : "Not fullfilled",
@@ -200,7 +198,7 @@ function RequirementDetailsPage() {
                       {content?.class === "FR"
                         ? "Functional"
                         : content?.class === "NFR"
-                          ? "Not functional"
+                          ? "Non-functional"
                           : (content?.class ?? "Classification not provided")}
                     </span>
                     <span className="rounded-full border px-2.5 py-1 text-xs">
@@ -253,6 +251,36 @@ function RequirementDetailsPage() {
                     ))}
                   </div>
                 </Card>
+
+                {isNfr && content?.constraint && (
+                  <Card className="gap-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="size-4" />
+                      <Typography as="h2" className="font-semibold">
+                        Constraint card
+                      </Typography>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      A non-functional requirement is not a user story: it is the limit the stories it applies to must respect.
+                    </p>
+                    <dl className="grid gap-1 text-sm">
+                      <div className="flex gap-2"><dt className="w-24 font-medium">Quality</dt><dd>{content.constraint.quality}</dd></div>
+                      <div className="flex gap-2"><dt className="w-24 font-medium">Applies to</dt><dd>{content.constraint.scope}</dd></div>
+                      <div className="flex gap-2"><dt className="w-24 font-medium">Measure</dt><dd>{content.constraint.measure}</dd></div>
+                    </dl>
+                  </Card>
+                )}
+
+                {(requirement?.experts?.length ?? contributionsOf(requirement?.sources).length) > 0 && (
+                  <Card className="gap-3">
+                    <Typography as="h2" className="font-semibold">
+                      Experts that contributed
+                    </Typography>
+                    <div className="flex flex-wrap gap-2">
+                      <ExpertTags experts={requirement?.experts ?? contributionsOf(requirement?.sources)} />
+                    </div>
+                  </Card>
+                )}
 
                 {story && (
                   <Card className="gap-3">

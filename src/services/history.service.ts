@@ -4,7 +4,9 @@ import type {
   ConversationSummary,
   ConversationListResponse,
   BehindTheScenesEvent,
+  Epic,
   ExpertDetails,
+  FormatReport,
   ExpertListResponse,
   ExpertSummary,
   RequirementDetails,
@@ -88,6 +90,22 @@ export const HistoryService = {
 
   async getExpertById(projectId: string, id: string): Promise<ExpertDetails> {
     const { data } = await API.get<ExpertDetails>(expertPath(projectId, id));
+    return data;
+  },
+
+  async getEpics(projectId: string): Promise<Epic[]> {
+    const { data } = await API.get<Epic[]>(`${base(projectId)}/epics`);
+    return data;
+  },
+
+  /** Ask the Twin to group the requirements into epics again (one LLM call). */
+  async organizeEpics(projectId: string): Promise<Epic[]> {
+    const { data } = await API.post<Epic[]>(`${base(projectId)}/epics`, undefined, { timeout: 0 });
+    return data;
+  },
+
+  async getFormatReport(projectId: string): Promise<FormatReport> {
+    const { data } = await API.get<FormatReport>(`${base(projectId)}/quality`);
     return data;
   },
 };

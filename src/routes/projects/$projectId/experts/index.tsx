@@ -224,7 +224,7 @@ function ExpertsPage() {
             )}
             {!isLoading && !error && filteredExperts.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Showing {filteredExperts.length} de {experts.length} experts.
+                Showing {filteredExperts.length} of {experts.length} experts.
               </p>
             )}
           </div>
