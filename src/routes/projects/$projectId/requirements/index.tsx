@@ -18,6 +18,10 @@ import { Typography } from "@/components/ui/typography";
 import { getApiErrorMessage } from "@/services/api";
 import { HistoryService } from "@/services/history.service";
 import type { RequirementSummary } from "@/services/api.types";
+import { ExpertTags } from "@/components/RequirementCard";
+import { completeness } from "@/utils/requirements";
+import { Tag, TagLegend } from "@/components/TagLegend";
+import { CLASS_LABEL, STATUS_LABEL, SUBTYPE_LABEL } from "@/components/TagLegend/labels";
 
 export const Route = createFileRoute("/projects/$projectId/requirements/")({
   component: RequirementsPage,
@@ -36,6 +40,10 @@ function statusLabel(status: string): string {
     draft: "Draft",
     proposed: "Proposed",
     deprecated: "Deprecated",
+    under_review: "Under review",
+    superseded: "Superseded",
+    split: "Split",
+    merged: "Merged",
     rejected: "Rejected",
   };
   return labels[status.toLowerCase()] ?? status;
@@ -150,7 +158,7 @@ function RequirementsPage() {
                 </Typography>
               </Card>
               <Card className="gap-1">
-                <Typography as="p">Not Functional</Typography>
+                <Typography as="p">Non-functional</Typography>
                 <Typography as="h2" className="text-2xl font-semibold">
                   {isLoading
                     ? "—"
@@ -159,6 +167,8 @@ function RequirementsPage() {
                 </Typography>
               </Card>
             </div>
+
+            <TagLegend />
 
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_220px]">
               <div className="relative">
@@ -258,16 +268,27 @@ function RequirementsPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="mb-2 flex flex-wrap gap-2">
-                          <span className="rounded-full border px-2 py-0.5 text-xs">
-                            {item.class === "FR"
-                              ? "Functional"
-                              : item.class === "NFR"
-                                ? "Not Functional"
-                                : item.class}
-                          </span>
-                          <span className="rounded-full border px-2 py-0.5 text-xs">
+                          <span className="font-mono text-xs font-semibold">{item.id}</span>
+                          <Tag title={CLASS_LABEL[item.class]}>
+                            {item.class === "FR" ? "Functional" : item.class === "NFR" ? "Non-functional" : item.class}
+                          </Tag>
+                          {item.class === "NFR" && item.subtype && (
+                            <Tag tone="muted" title={SUBTYPE_LABEL[item.subtype]}>
+                              {item.subtype}
+                            </Tag>
+                          )}
+                          <Tag tone={item.status === "active" ? "success" : "warning"} title={STATUS_LABEL[item.status]}>
                             {statusLabel(item.status)}
-                          </span>
+                          </Tag>
+                          {completeness(item.quality) !== null && (
+                            <Tag
+                              tone={completeness(item.quality) === 1 ? "success" : "warning"}
+                              title="Share of the format checks it passes: EARS statement, story or constraint card, Given/When/Then, no vague terms"
+                            >
+                              Format {Math.round((completeness(item.quality) ?? 0) * 100)}%
+                            </Tag>
+                          )}
+                          <ExpertTags experts={item.experts ?? []} />
                         </div>
                         <Typography as="h2" className="text-base font-semibold">
                           {item.title}
@@ -310,7 +331,7 @@ function RequirementsPage() {
             )}
             {!isLoading && !error && filteredRequirements.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Showing {filteredRequirements.length} de {requirements.length}{" "}
+                Showing {filteredRequirements.length} of {requirements.length}{" "}
                 requirements.
               </p>
             )}

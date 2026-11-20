@@ -1,6 +1,7 @@
 import { API } from "./api";
 import type {
   CloseConversationResponse,
+  ConversationSummary,
   OpenConversationResponse,
   SendMessagePayload,
   TwinAnswer,
@@ -96,10 +97,24 @@ const conversationsPath = (projectId: string) =>
 const conversationPath = (projectId: string, id: string) =>
   `${conversationsPath(projectId)}/${encodeURIComponent(id)}`;
 
+/** A meeting is read one utterance at a time: a long one takes minutes, so no request timeout. */
+const MEETING_TIMEOUT_MS = 0;
+
 export const ChatService = {
-  async openChat(projectId: string): Promise<OpenConversationResponse> {
+  async openChat(projectId: string, title?: string): Promise<OpenConversationResponse> {
     const { data } = await API.post<OpenConversationResponse>(
       conversationsPath(projectId),
+      title?.trim() ? { title: title.trim() } : undefined,
+    );
+    return data;
+  },
+
+  /** Send a meeting transcript (or its next part): its requirements come back as drafts. */
+  async sendMeeting(projectId: string, id: string, text: string, title?: string): Promise<TwinAnswer> {
+    const { data } = await API.post<TwinAnswer>(
+      `${conversationPath(projectId, id)}/meeting`,
+      { text, ...(title?.trim() ? { title: title.trim() } : {}) },
+      { timeout: MEETING_TIMEOUT_MS },
     );
     return data;
   },
@@ -149,11 +164,50 @@ export const ChatService = {
     return data;
   },
 
-  async approve(projectId: string, id: string): Promise<TwinAnswer> {
+  /** Approve the pending drafts: all of them, or only `draftIds`. */
+  async approve(projectId: string, id: string, draftIds?: string[]): Promise<TwinAnswer> {
     const { data } = await API.post<TwinAnswer>(
       `${conversationPath(projectId, id)}/approve`,
+      draftIds ? { draft_ids: draftIds } : undefined,
     );
     return data;
+  },
+
+  async approveDraft(projectId: string, id: string, draftId: string): Promise<TwinAnswer> {
+    const { data } = await API.post<TwinAnswer>(
+      `${conversationPath(projectId, id)}/drafts/${encodeURIComponent(draftId)}/approve`,
+    );
+    return data;
+  },
+
+  async rejectDraft(projectId: string, id: string, draftId: string): Promise<TwinAnswer> {
+    const { data } = await API.delete<TwinAnswer>(
+      `${conversationPath(projectId, id)}/drafts/${encodeURIComponent(draftId)}`,
+    );
+    return data;
+  },
+
+  async restoreDraft(projectId: string, id: string, draftId: string): Promise<TwinAnswer> {
+    const { data } = await API.post<TwinAnswer>(
+      `${conversationPath(projectId, id)}/drafts/${encodeURIComponent(draftId)}/restore`,
+    );
+    return data;
+  },
+
+  async rename(projectId: string, id: string, title: string): Promise<ConversationSummary> {
+    const { data } = await API.patch<ConversationSummary>(conversationPath(projectId, id), { title });
+    return data;
+  },
+
+  /** Delete a conversation that saved nothing (the API answers 409 for one that did). */
+  async remove(projectId: string, id: string): Promise<void> {
+    await API.delete(conversationPath(projectId, id));
+  },
+
+  /** Delete every conversation where the PO never wrote. Returns the deleted ids. */
+  async removeEmpty(projectId: string): Promise<string[]> {
+    const { data } = await API.delete<{ deleted: string[] }>(conversationsPath(projectId));
+    return data.deleted;
   },
 
   async close(projectId: string, id: string): Promise<CloseConversationResponse> {

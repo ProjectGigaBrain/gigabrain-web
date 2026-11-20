@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import {
   AlertCircle,
   BrainCircuit,
+  Eraser,
   FileText,
   FolderKanban,
+  Layers,
   LoaderCircle,
   MessageSquare,
   Plus,
   RefreshCw,
   Settings,
+  Trash2,
   User,
 } from "lucide-react";
 
@@ -22,15 +25,18 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Typography } from "@/components/ui/typography";
 import { getApiErrorMessage } from "@/services/api";
+import { ChatService } from "@/services/chat.service";
 import {
   CONVERSATIONS_UPDATED_EVENT,
   HistoryService,
+  notifyConversationsUpdated,
 } from "@/services/history.service";
 import {
   PROJECTS_UPDATED_EVENT,
@@ -103,6 +109,36 @@ export function AppSidebar() {
     }
   }, [projectId]);
 
+  const navigate = useNavigate();
+
+  const deleteConversation = async (conversation: ConversationSummary) => {
+    if (!projectId) return;
+    if (!window.confirm(`Delete "${getConversationLabel(conversation)}"? This cannot be undone.`)) return;
+    try {
+      await ChatService.remove(projectId, conversation.id);
+      if (pathname.endsWith(`/conversations/${conversation.id}`)) {
+        await navigate({ to: "/projects/$projectId/chat", params: { projectId } });
+      }
+      notifyConversationsUpdated();
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "The conversation could not be deleted."));
+    }
+  };
+
+  const deleteEmpty = async () => {
+    if (!projectId) return;
+    if (!window.confirm("Delete every conversation where nothing was written? This cannot be undone.")) return;
+    try {
+      const deleted = await ChatService.removeEmpty(projectId);
+      if (deleted.some((cid) => pathname.endsWith(`/conversations/${cid}`))) {
+        await navigate({ to: "/projects/$projectId/chat", params: { projectId } });
+      }
+      notifyConversationsUpdated();
+    } catch (requestError) {
+      setError(getApiErrorMessage(requestError, "The empty conversations could not be deleted."));
+    }
+  };
+
   useEffect(() => {
     void loadConversations();
     window.addEventListener(CONVERSATIONS_UPDATED_EVENT, loadConversations);
@@ -174,6 +210,21 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       render={
                         <Link
+                          to="/projects/$projectId/epics"
+                          params={{ projectId }}
+                        />
+                      }
+                      isActive={pathname.includes("/epics")}
+                      tooltip="Epics"
+                    >
+                      <Layers />
+                      <span>Epics</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      render={
+                        <Link
                           to="/projects/$projectId/experts"
                           params={{ projectId }}
                         />
@@ -200,8 +251,19 @@ export function AppSidebar() {
               <Button
                 variant="ghost"
                 size="icon"
+                className="ml-auto size-7"
+                aria-label="Delete empty conversations"
+                title="Delete empty conversations"
+                onClick={() => void deleteEmpty()}
+                disabled={isLoading || conversations.length === 0}
+              >
+                <Eraser className="size-3.5" aria-hidden />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 className="size-7"
-                aria-label="Atualizar conversas"
+                aria-label="Refresh conversations"
                 onClick={() => void loadConversations()}
                 disabled={isLoading}
               >
@@ -278,9 +340,20 @@ export function AppSidebar() {
                           {getConversationLabel(conversation)}
                         </span>
                         <span className="shrink-0 text-[10px] text-muted-foreground">
+                          {conversation.status === "closed" ? "closed · " : ""}
                           {formatDate(conversation.started_at)}
                         </span>
                       </SidebarMenuButton>
+                      {conversation.status !== "approved" && (
+                        <SidebarMenuAction
+                          showOnHover
+                          aria-label={`Delete ${getConversationLabel(conversation)}`}
+                          title="Delete (only a conversation that saved nothing)"
+                          onClick={() => void deleteConversation(conversation)}
+                        >
+                          <Trash2 />
+                        </SidebarMenuAction>
+                      )}
                     </SidebarMenuItem>
                   );
                 })}
