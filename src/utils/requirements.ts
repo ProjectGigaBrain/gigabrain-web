@@ -37,3 +37,14 @@ export function draftProgress(drafts: Draft[]) {
     structure: scores.length ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) : null,
   };
 }
+
+/** The words that join a story and a Gherkin criterion, in the language the requirement is written in. */
+export const CONNECTORS = {
+  en: { asA: "As a", iWant: "I want", soThat: "so that", given: "Given", when: "When", then: "Then" },
+  pt: { asA: "Como", iWant: "quero", soThat: "para que", given: "Dado", when: "Quando", then: "Então" },
+};
+
+/** "pt" when the statement is in Portuguese ("o sistema deve ..."), "en" otherwise. */
+export function contentLanguage(text: string | null | undefined): keyof typeof CONNECTORS {
+  return /\b(deve|devem|deverá|sistema|usuário|quando|então)\b/i.test(text ?? "") ? "pt" : "en";
+}

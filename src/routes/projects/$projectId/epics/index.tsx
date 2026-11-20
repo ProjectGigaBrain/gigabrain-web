@@ -212,7 +212,7 @@ function EpicColumn({
             <span className="text-sm font-medium">{item.title}</span>
           </div>
           {item.statement && <p className="text-sm text-muted-foreground">{item.statement}</p>}
-          <StoryOrConstraint requirement={{ class: nfr ? "NFR" : "FR", story: item.story, constraint: item.constraint }} />
+          <StoryOrConstraint requirement={{ class: nfr ? "NFR" : "FR", story: item.story, constraint: item.constraint, statement: item.statement }} />
           {item.acceptance_criteria.length > 0 && (
             <p className="text-xs text-muted-foreground">{item.acceptance_criteria.length} acceptance criteria</p>
           )}

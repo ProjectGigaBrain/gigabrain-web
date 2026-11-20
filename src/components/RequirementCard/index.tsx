@@ -5,7 +5,7 @@ import { Typography } from "@/components/ui/typography";
 import { ValidationPanel } from "@/components/ValidationPanel";
 import { Tag } from "@/components/TagLegend";
 import { CLASS_LABEL, EARS_LABEL, EXPERT_LABEL, ORIGIN_LABEL, STATUS_LABEL, SUBTYPE_LABEL } from "@/components/TagLegend/labels";
-import { contributionsOf } from "@/utils/requirements";
+import { CONNECTORS, contentLanguage, contributionsOf } from "@/utils/requirements";
 import type { ExpertContribution, ProposedRequirement, RequirementQuality, RequirementSource } from "@/services/api.types";
 
 export function ExpertTags({ experts }: { experts: ExpertContribution[] }) {
@@ -55,8 +55,13 @@ export function QualityChecks({ quality, isNfr }: { quality: RequirementQuality;
   );
 }
 
-export function StoryOrConstraint({ requirement }: { requirement: Pick<ProposedRequirement, "class" | "story" | "constraint"> }) {
+export function StoryOrConstraint({
+  requirement,
+}: {
+  requirement: Pick<ProposedRequirement, "class" | "story" | "constraint"> & { statement?: string | null };
+}) {
   const { story, constraint } = requirement;
+  const words = CONNECTORS[contentLanguage(requirement.statement)];
   if (requirement.class === "NFR") {
     if (!constraint || !(constraint.quality || constraint.measure)) return null;
     return (
@@ -79,7 +84,8 @@ export function StoryOrConstraint({ requirement }: { requirement: Pick<ProposedR
     <div className="rounded-xl bg-muted/40 p-3">
       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">User story</p>
       <p className="text-sm">
-        As a <strong>{story.role}</strong>, I want <strong>{story.goal}</strong>, so that <strong>{story.benefit}</strong>.
+        {words.asA} <strong>{story.role}</strong>, {words.iWant} <strong>{story.goal}</strong>, {words.soThat}{" "}
+        <strong>{story.benefit}</strong>.
       </p>
     </div>
   );
@@ -105,6 +111,9 @@ export function RequirementCard({
 }) {
   const isNfr = requirement.class === "NFR";
   const experts = contributionsOf(sources);
+  const words = CONNECTORS[contentLanguage(requirement.statement)];
+  // The pattern the sentence really has (the model's own label may be wrong).
+  const earsPattern = requirement.quality?.ears_pattern ?? requirement.ears_pattern;
   const statusTone = status === "approved" ? "success" : status === "rejected" ? "danger" : status === "pending" ? "warning" : "neutral";
   return (
     <Card className={`gap-3 rounded-2xl bg-card p-4 ${dimmed ? "opacity-60" : ""}`}>
@@ -121,9 +130,9 @@ export function RequirementCard({
             {requirement.subtype}
           </Tag>
         )}
-        {requirement.ears_pattern && (
-          <Tag tone="muted" title={EARS_LABEL[requirement.ears_pattern]}>
-            EARS · {requirement.ears_pattern}
+        {earsPattern && (
+          <Tag tone="muted" title={EARS_LABEL[earsPattern]}>
+            EARS · {earsPattern}
           </Tag>
         )}
         {origin && (
@@ -159,13 +168,13 @@ export function RequirementCard({
             <div key={`${criterion.scenario}-${index}`} className="rounded-xl border p-3 text-sm">
               {criterion.scenario && <p className="mb-2 font-medium">{criterion.scenario}</p>}
               <p>
-                <span className="font-medium">Given</span> {criterion.given}
+                <span className="font-medium">{words.given}</span> {criterion.given}
               </p>
               <p>
-                <span className="font-medium">When</span> {criterion.when}
+                <span className="font-medium">{words.when}</span> {criterion.when}
               </p>
               <p>
-                <span className="font-medium">Then</span> {criterion.then}
+                <span className="font-medium">{words.then}</span> {criterion.then}
               </p>
             </div>
           ))}

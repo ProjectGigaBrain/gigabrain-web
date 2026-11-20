@@ -409,7 +409,7 @@ function ConversationPage() {
 
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto xl:grid-cols-[minmax(0,1fr)_minmax(380px,520px)] xl:overflow-hidden">
           {/* Messages */}
-          <section aria-label="Conversation" aria-live="polite" className="min-h-0 px-4 py-5 sm:px-6 xl:overflow-y-auto">
+          <section aria-label="Conversation" aria-live="polite" className="px-4 py-5 sm:px-6 xl:min-h-0 xl:overflow-y-auto">
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
               {conversation?.messages.length === 0 && !pendingText && (
                 <div className="mx-auto flex max-w-lg flex-col items-center gap-3 py-12 text-center">
@@ -489,7 +489,7 @@ function ConversationPage() {
           </section>
 
           {/* Drafts */}
-          <aside aria-label="Drafts" className="min-h-0 border-t px-4 py-5 sm:px-6 xl:overflow-y-auto xl:border-t-0 xl:border-l">
+          <aside aria-label="Drafts" className="border-t px-4 py-5 sm:px-6 xl:min-h-0 xl:overflow-y-auto xl:border-t-0 xl:border-l">
             <div className="flex flex-col gap-3">
               <div>
                 <Typography as="h2" className="font-semibold">

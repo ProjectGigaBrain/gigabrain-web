@@ -198,7 +198,7 @@ function RequirementDetailsPage() {
                       {content?.class === "FR"
                         ? "Functional"
                         : content?.class === "NFR"
-                          ? "Not functional"
+                          ? "Non-functional"
                           : (content?.class ?? "Classification not provided")}
                     </span>
                     <span className="rounded-full border px-2.5 py-1 text-xs">
