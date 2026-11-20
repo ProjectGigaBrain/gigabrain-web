@@ -1,14 +1,18 @@
-# GigaBrain Frontend
+# gigabrain-web
 
 Web application of GigaBrain, built with React, TypeScript, Vite and TanStack Router. The
 Product Owner (PO) creates projects, talks to the Digital Twin to define requirements and
 browses the requirements and experts of each project.
 
+Part of the [ProjectGigaBrain](https://github.com/ProjectGigaBrain) organization, next to
+[gigabrain-api](https://github.com/ProjectGigaBrain/gigabrain-api) (backend) and
+[gigabrain-dataset](https://github.com/ProjectGigaBrain/gigabrain-dataset) (evaluation data).
+
 ## Requirements
 
 - Node.js compatible with the Vite version of the project.
 - The GigaBrain API running locally or reachable at the configured URL
-  (`python main.py api` in the backend repository).
+  (`python main.py api` in [gigabrain-api](https://github.com/ProjectGigaBrain/gigabrain-api)).
 
 ## API configuration
 
